@@ -1,0 +1,185 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "functionAppNamePrefix": {
+      "type": "String",
+      "metadata": {
+        "description": "Name for the Function App to be suffixed with region short name"
+      }
+    },
+    "aspNamePrefix": {
+      "type": "String",
+      "metadata": {
+        "description": "Name for the app service plan to be suffixed with region short name"
+      }
+    },
+    "appInsightsName": {
+      "type": "String",
+      "metadata": {
+        "description": "Name for the Application Insights instance"
+      }
+    },
+    "storageAccountName": {
+      "type": "String",
+      "metadata": {
+        "description": "Name for the Function App's storage account"
+      }
+    },
+    "msiResourceId": {
+      "type": "String",
+      "metadata": {
+        "description": "The resource ID for the Managed Service Identity the Function App should use for authentication"
+      }
+    },
+    "msiClientId": {
+      "type": "String",
+      "metadata": {
+        "description": "The client ID for the Managed Service Identity the Function App should use for authentication"
+      }
+    },
+    "subscriptions": {
+      "type": "array",
+      "metadata": {
+        "description": "The subscriptions the Azure Functions should target (one function app will deployed for each value)"
+      }
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2015-05-01",
+      "name": "[parameters('appInsightsName')]",
+      "location": "[resourceGroup().location]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "other"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2019-08-01",
+      "name": "[concat(parameters('aspNamePrefix'), '-', take(parameters('subscriptions')[copyIndex()], 3))]",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "functionAppCopy",
+        "count": "[length(parameters('subscriptions'))]"
+      },
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "properties": {
+        "name": "[concat(parameters('aspNamePrefix'), '-', take(parameters('subscriptions')[copyIndex()], 3))]",
+        "computeMode": "Dynamic"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[parameters('storageAccountName')]",
+      "apiVersion": "2019-06-01",
+      "location": "[resourceGroup().location]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS",
+        "tier": "Standard"
+      },
+      "properties": {
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2018-11-01",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', concat(parameters('aspNamePrefix'), '-', take(parameters('subscriptions')[copyIndex()], 3)))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ],
+      "copy": {
+        "name": "functionAppCopy",
+        "count": "[length(parameters('subscriptions'))]"
+      },
+      "name": "[concat(parameters('functionAppNamePrefix'), '-', take(parameters('subscriptions')[copyIndex()], 3))]",
+      "kind": "functionapp",
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', concat(parameters('aspNamePrefix'), '-', take(parameters('subscriptions')[copyIndex()], 3)))]",
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2015-05-01-preview').key1)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2015-05-01-preview').key1)]"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "powershell"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME_VERSION",
+              "value": "~7"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~3"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_PROCESS_COUNT",
+              "value": "5"
+            },
+            {
+              "name": "PSWorkerInProcConcurrencyUpperBound",
+              "value": "10"
+            },
+            {
+              "name": "queueStorageAccountConnStr",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2015-05-01-preview').key1)]"
+            },
+            {
+              "name": "msiClientId",
+              "value": "[parameters('msiClientId')]"
+            },
+            {
+              "name": "subscription",
+              "value": "[parameters('subscriptions')[copyIndex()]]"
+            },
+            {
+              "name": "resizeQueue",
+              "value": "[concat('anf-resize-', take(parameters('subscriptions')[copyIndex()], 3))]"
+            },
+            {
+              "name": "snapQueue",
+              "value": "[concat('anf-snapshot-', take(parameters('subscriptions')[copyIndex()], 3))]"
+            }
+          ],
+          "ftpsState": "FtpsOnly"
+        },
+        "httpsOnly": true
+      },
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[parameters('msiResourceId')]": {}
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "functionApps": {
+      "type": "array",
+      "copy": {
+        "count": "[length(parameters('subscriptions'))]",
+        "input": "[concat(parameters('functionAppNamePrefix'), '-', take(parameters('subscriptions')[copyIndex()], 3))]"
+      }
+    }
+  }
+}

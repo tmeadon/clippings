@@ -1,0 +1,54 @@
+global
+   log /dev/log local0
+   log /dev/log local1 notice
+   chroot /var/lib/haproxy
+   stats socket /var/lib/haproxy/stats mode 660 level admin
+   stats timeout 30s
+   user haproxy
+   group haproxy
+   daemon
+
+defaults
+   log global
+   mode http
+   option httplog
+   option dontlognull
+   timeout connect 5000
+   timeout client 50000
+   timeout server 50000
+
+frontend www
+   bind *:80
+   option http-server-close
+   default_backend web-backend
+
+backend web-backend
+   balance roundrobin
+   {% for host in groups['web'] %}
+   server {{ host }} {{ hostvars[host]['ansible_eth0']['ipv4']['address'] }}:80 check 
+   {% endfor %}
+
+listen db-cluster 0.0.0.0:3306
+   balance roundrobin
+   mode tcp
+   option mysql-check user haproxy-check
+   {% for host in groups['db'] %}
+   server {{ host }} {{ hostvars[host]['ansible_eth0']['ipv4']['address'] }}:3306 check
+   {% endfor %}
+
+listen stats 0.0.0.0:9000
+   mode http
+   balance
+   timeout client 5000
+   timeout connect 3000
+   timeout server 30000
+
+   # virtual URL to access the stats page
+   stats uri /haproxy_stats
+
+   # authentication
+   stats realm HAProxy\ Statistics
+   stats auth tom:tom
+
+   # enable ability to take down and bring up back end servers
+   stats admin if TRUE

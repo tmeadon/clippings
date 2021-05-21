@@ -1,0 +1,17 @@
+// http error request rate
+requests
+| extend error=iff((resultCode startswith "4") or (resultCode startswith "5"), 1, 0)
+| summarize numRequests=sum(itemCount), numErrors=sum(error) by bin(timestamp, 5m)
+| extend errorRate=(numErrors * 100)/numRequests 
+| project errorRate, timestamp  
+| render timechart
+
+// http error rate split by 4xx and 5xx
+requests
+| extend userError=iff(resultCode startswith "4", 1, 0)
+| extend serverError=iff(resultCode startswith "5", 1, 0) 
+| summarize numRequests=sum(itemCount), numUserErrors=sum(userError), numServerErrors=sum(serverError) by bin(timestamp, 5m)
+| extend userErrorRate=(numUserErrors * 100)/numRequests
+| extend serverErrorRate=(numServerErrors * 100)/numRequests 
+| project userErrorRate, serverErrorRate , timestamp  
+| render timechart

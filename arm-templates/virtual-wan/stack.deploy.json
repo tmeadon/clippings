@@ -1,0 +1,349 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "templateContainerUri": {
+      "type": "string"
+    },
+    "templateContainerSas": {
+      "type": "string"
+    },
+    "sshPublicKeys": {
+      "type": "array"
+    }
+  },
+  "variables": {
+    "vnetTemplateName": "vnet.deploy.json",
+    "vwanTemplateName": "virtual-wan.deploy.json",
+    "bastionTemplateName": "bastion.deploy.json",
+    "linuxVmTemplateName": "vm-linux.deploy.json",
+    "vnets": [
+      {
+        "name": "uksouth-dev",
+        "addressPrefixes": ["10.1.0.0/16"],
+        "location": "uksouth",
+        "subnets": [
+          {
+            "name": "AzureBastionSubnet",
+            "addressPrefix": "10.1.0.0/24"
+          },
+          {
+            "name": "dmz",
+            "addressPrefix": "10.1.1.0/24"
+          },
+          {
+            "name": "backend",
+            "addressPrefix": "10.1.2.0/24"
+          }
+        ]
+      },
+      {
+        "name": "uksouth-prod",
+        "addressPrefixes": ["10.2.0.0/16"],
+        "location": "uksouth",
+        "subnets": [
+          {
+            "name": "AzureBastionSubnet",
+            "addressPrefix": "10.2.0.0/24"
+          },
+          {
+            "name": "dmz",
+            "addressPrefix": "10.2.1.0/24"
+          },
+          {
+            "name": "backend",
+            "addressPrefix": "10.2.2.0/24"
+          }
+        ]
+      },
+      {
+        "name": "eastus-dev",
+        "addressPrefixes": ["10.3.0.0/16"],
+        "location": "eastus",
+        "subnets": [
+          {
+            "name": "AzureBastionSubnet",
+            "addressPrefix": "10.3.0.0/24"
+          },
+          {
+            "name": "dmz",
+            "addressPrefix": "10.3.1.0/24"
+          },
+          {
+            "name": "backend",
+            "addressPrefix": "10.3.2.0/24"
+          }
+        ]
+      },
+      {
+        "name": "eastus-prod",
+        "addressPrefixes": ["10.4.0.0/16"],
+        "location": "eastus",
+        "subnets": [
+          {
+            "name": "AzureBastionSubnet",
+            "addressPrefix": "10.4.0.0/24"
+          },
+          {
+            "name": "dmz",
+            "addressPrefix": "10.4.1.0/24"
+          },
+          {
+            "name": "backend",
+            "addressPrefix": "10.4.2.0/24"
+          }
+        ]
+      }
+    ],
+    "vms": [
+      {
+        "name": "vm01",
+        "location": "uksouth",
+        "vnetName": "uksouth-prod",
+        "subnetIndex": 1,
+        "imageProfile": {
+          "publisher": "openlogic",
+          "offer": "centos",
+          "sku": "8.0",
+          "version": "latest"
+        }
+      },
+      {
+        "name": "vm02",
+        "location": "uksouth",
+        "vnetName": "uksouth-dev",
+        "subnetIndex": 1,
+        "imageProfile": {
+          "publisher": "openlogic",
+          "offer": "centos",
+          "sku": "8.0",
+          "version": "latest"
+        }
+      },
+      {
+        "name": "vm03",
+        "location": "eastus",
+        "vnetName": "eastus-dev",
+        "subnetIndex": 1,
+        "imageProfile": {
+          "publisher": "openlogic",
+          "offer": "centos",
+          "sku": "8.0",
+          "version": "latest"
+        }
+      }
+    ]
+  },
+  "functions": [
+    {
+      "namespace": "deployment",
+      "members": {
+        "buildTemplateUri": {
+          "parameters": [
+            {
+              "name": "containerUri",
+              "type": "string"
+            },
+            {
+              "name": "templateName",
+              "type": "string"
+            },
+            {
+              "name": "sasToken",
+              "type": "string"
+            }
+          ],
+          "output": {
+            "type": "string",
+            "value": "[concat(parameters('containerUri'), '/', parameters('templateName'), '?', parameters('sasToken'))]"
+          }
+        }
+      }
+    }
+  ],
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "copy": {
+        "name": "allvnets",
+        "count": "[length(variables('vnets'))]"
+      },
+      "name": "[concat('vnet-', variables('vnets')[copyIndex()].name)]",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[deployment.buildTemplateUri(parameters('templateContainerUri'), variables('vnetTemplateName'), parameters('templateContainerSas'))]",
+          "contentVersion":"1.0.0.0"
+        },
+        "parameters": {
+          "vnetName": {
+            "value": "[variables('vnets')[copyIndex()].name]"
+          },
+          "addressPrefixes": {
+            "value": "[variables('vnets')[copyIndex()].addressPrefixes]"
+          },
+          "location": {
+            "value": "[variables('vnets')[copyIndex()].location]"
+          },
+          "subnets": {
+            "value": "[variables('vnets')[copyIndex()].subnets]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "name": "virtualWan",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[deployment.buildTemplateUri(parameters('templateContainerUri'), variables('vwanTemplateName'), parameters('templateContainerSas'))]",
+          "contentVersion":"1.0.0.0"
+        },
+        "parameters": {
+          "wanName": {
+            "value": "virtual-wan"
+          },
+          "wanLocation": {
+            "value": "uksouth"
+          },
+          "wanSku": {
+            "value": "Standard"
+          },
+          "hubs": {
+            "value": [
+              {
+                "hubName": "uksouth",
+                "location": "uksouth",
+                "addressPrefix": "10.0.0.0/24",
+                "vpnGateway": {
+                  "shouldExist": true,
+                  "alreadyExists": false
+                },
+                "p2sGateway": {
+                  "shouldExist": true,
+                  "alreadyExists": false,
+                  "clientAddressPrefixes": [
+                    "192.168.100.0/24"
+                  ],
+                  "rootPublicKey": "MIIC5zCCAc+gAwIBAgIQHRI5e0SvYr9AI2hWHV8/IjANBgkqhkiG9w0BAQsFADAWMRQwEgYDVQQDDAtQMlNSb290Q2VydDAeFw0yMDAzMjIxMDQwNTBaFw0yMTAzMjIxMTAwNTBaMBYxFDASBgNVBAMMC1AyU1Jvb3RDZXJ0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0wAUwnN3n+SQMSX2WxJLD2SxNffYxRkvOGLZ4i9EXqNJiv0xHfiGA/IzRpovvxv8GfYUFqvA4OLfdN4IefT52UogT7NZ4TJEu41qb9+YWo6/cYC8HBP2bsQMhUPR3k74gRNzWxbBMzBp7VgIbLIrKwbF02Af2vZCzVvj6R3fGNHF1n9vfAbhZ/LKD21IzunIik+JTpAVKRukvmv4FzAoiBEqtU68bWVub5cuXDj7BVWpwFXKKbZWouUGwjAZbUigc5QADo/nxxHZ3mgWIpIdDuvlAx7TVAZPzwDXWHGZf2N4Tu3bVm8o4BVh+IgpqGL+Pv3rMKyyhcVMeBXI5+PSZQIDAQABozEwLzAOBgNVHQ8BAf8EBAMCAgQwHQYDVR0OBBYEFDmWJbucNJtFXQ8hVli0ujAlUpefMA0GCSqGSIb3DQEBCwUAA4IBAQDR6QBsaGAQdSr3STqiIG51pbgpfrSh9KfDtIOeLdZsUAzeB/kqG+4X4y0rIDvAXK0IshVA9loauqnTgnYLdL68dJAW0Lucxg7rR60LTnq6EhAnbMRYEbiRmbqyXBKZ7EkLtWBS4ERebOxnCFswGf5lQmuD1jWwupw26g8w00fV56s5fWWQx59MC6auOkt7+f/rmoy8ipTOwUKqBmyc2JXhv65RTJMPQmw3cXKu0Fnl8lhV6FTUfoG39l9DRjrkzim0B2oPeNjhO2iC47tOT1w7ZbG2lPZWg7WU64GWx/PppUz+jDjRtXPBLdnrFpZ5F5ScrYGoZTdEr/NmJscx8Lfz"
+                },
+                "vnetConnections": [
+                  {
+                    "name": "uksouth-dev",
+                    "properties": {
+                      "remoteVirtualNetwork": {
+                        "id": "[reference('vnet-uksouth-dev').outputs.vnet.value.id]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "uksouth-prod",
+                    "properties": {
+                      "remoteVirtualNetwork": {
+                        "id": "[reference('vnet-uksouth-prod').outputs.vnet.value.id]"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "hubName": "eastus",
+                "location": "eastus",
+                "addressPrefix": "10.0.1.0/24",
+                "vpnGateway": {
+                  "shouldExist": true,
+                  "alreadyExists": false
+                },
+                "p2sGateway": {
+                  "shouldExist": false,
+                  "alreadyExists": false
+                },
+                "vnetConnections": [
+                  {
+                    "name": "eastus-dev",
+                    "properties": {
+                      "remoteVirtualNetwork": {
+                        "id": "[reference('vnet-eastus-dev').outputs.vnet.value.id]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "eastus-prod",
+                    "properties": {
+                      "remoteVirtualNetwork": {
+                        "id": "[reference('vnet-eastus-prod').outputs.vnet.value.id]"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "dependsOn": [
+        "allvnets"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "name": "bastionDeployment",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[deployment.buildTemplateUri(parameters('templateContainerUri'), variables('bastionTemplateName'), parameters('templateContainerSas'))]",
+          "contentVersion":"1.0.0.0"
+        },
+        "parameters": {
+          "bastionHostName": {
+            "value": "bastion"
+          },
+          "bastionSubnetId": {
+            "value": "[reference('vnet-uksouth-prod').outputs.subnets.value[0].id]"
+          }
+        }
+      },
+      "dependsOn": [
+        "allvnets"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "copy": {
+        "name": "allVms",
+        "count": "[length(variables('vms'))]"
+      },
+      "name": "[concat('vms-', variables('vms')[copyIndex()].name)]",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[deployment.buildTemplateUri(parameters('templateContainerUri'), variables('linuxVmTemplateName'), parameters('templateContainerSas'))]",
+          "contentVersion":"1.0.0.0"
+        },
+        "parameters": {
+          "vmName": {
+            "value": "[variables('vms')[copyIndex()].name]"
+          },
+          "location": {
+            "value": "[variables('vms')[copyIndex()].location]"
+          },
+          "subnetId": {
+            "value": "[reference(concat('vnet-', variables('vms')[copyIndex()].vnetName)).outputs.subnets.value[variables('vms')[copyIndex()].subnetIndex].id]"
+          },
+          "imageProfile": {
+            "value": "[variables('vms')[copyIndex()].imageProfile]"
+          },
+          "sshPublicKeys": {
+            "value": "[parameters('sshPublicKeys')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

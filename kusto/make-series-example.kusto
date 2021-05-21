@@ -1,0 +1,5 @@
+// number of exceptions per minute with default of 0
+exceptions
+| where timestamp > ago(60m)
+| make-series count() default = 0 on timestamp step 1m
+| render timechart 

@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alpine-ss
+  labels:
+    app: alpine-ss
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+  selector:
+    app: alpine
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: alpine-ss
+spec:
+  selector:
+    matchLabels:
+      app: alpine-ss
+  serviceName: alpine-ss
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: alpine-ss
+    spec:
+      containers:
+      - name: alpine
+        image: alpine
+        command: ["/bin/sh"]
+        args: ["-c", "sleep 500000"]
+        volumeMounts:
+        - mountPath: /mnt/nfs
+          name: data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi

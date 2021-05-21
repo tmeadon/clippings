@@ -1,0 +1,25 @@
+[mysqld]
+server-id={{ galera_server_id }}
+bind-address=0.0.0.0
+datadir=/var/lib/mysql
+
+[galera]
+
+# Mandatory settings
+wsrep_on=ON
+wsrep_provider=/usr/lib64/galera/libgalera_smm.so
+wsrep_cluster_address="gcomm://{{ groups['db'] | map('extract', hostvars, [galera_cluster_interface_fact_var,'ipv4','address']) | list | join(',') }}"
+wsrep_cluster_name={{ galera_cluster_name }}
+wsrep_node_name={{ ansible_hostname }}
+wsrep_node_address={{ ansible_eth0.ipv4.address }}
+binlog_format=row
+default_storage_engine=InnoDB
+innodb_autoinc_lock_mode=2
+
+# SST settings
+wsrep_sst_method=mariabackup
+wsrep_sst_receive_address={{ ansible_eth0.ipv4.address }}
+wsrep_sst_auth={{ galera_sst_user }}:{{ galera_sst_pass }}
+wsrep_on=ON
+
+

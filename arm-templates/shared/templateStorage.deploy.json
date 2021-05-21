@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "accountName": {
+      "type": "string"
+    },
+    "accountLocation": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "templateContainerName": {
+      "type": "string"
+    },
+    "sasExpiry": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "accountSasProperties": {
+      "signedServices": "b",
+      "signedPermission": "rw",
+      "signedExpiry": "[parameters('sasExpiry')]",
+      "signedResourceTypes": "o"
+    }
+  },
+  "functions": [],
+  "resources": [
+    {
+      "name": "[parameters('accountName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2018-07-01",
+      "location": "[parameters('accountLocation')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS",
+        "tier": "Standard"
+      },
+      "properties": {
+        "accessTier": "Hot"
+      },
+      "resources": [
+        {
+          "name": "[concat('default/', parameters('templateContainerName'))]",
+          "type": "blobServices/containers",
+          "apiVersion": "2018-07-01",
+          "dependsOn": [
+              "[parameters('accountName')]"
+          ]
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "templateContainerEndpoint": {
+      "type": "string",
+      "value": "[concat(reference(parameters('accountName')).primaryEndpoints.blob, parameters('templateContainerName'))]"
+    },
+    "sasToken": {
+      "type": "string",
+      "value": "[listAccountSas(parameters('accountName'), '2018-07-01', variables('accountSasProperties')).accountSasToken]"
+    }    
+  }
+}

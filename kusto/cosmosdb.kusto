@@ -1,0 +1,8 @@
+// get RUs consumed per second for a collection
+let dbName="<dbName>";
+let collName="<collName>";
+AzureDiagnostics
+| where Category == "DataPlaneRequests" and databaseName_s == dbName and collectionName_s == collName
+| extend requestCharge_d = todouble(requestCharge_s) 
+| summarize ConsumedRUs=sum(requestCharge_d) by bin(TimeGenerated, 1s)
+| render timechart 

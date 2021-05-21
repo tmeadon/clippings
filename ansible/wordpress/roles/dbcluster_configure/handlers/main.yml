@@ -1,0 +1,10 @@
+- name: Restart MariaDB Galera cluster
+  service:
+    name: mariadb
+    state: restarted
+  when: bootstrapped
+
+- name: restart firewalld
+  service:
+    name: firewalld
+    state: restarted

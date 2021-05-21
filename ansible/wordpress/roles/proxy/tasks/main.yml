@@ -1,0 +1,66 @@
+# Create firewall rules
+- name: Open web firewall ports
+  firewalld:
+    service: http
+    permanent: true
+    state: enabled
+  notify: restart firewalld
+
+- name: Open port 9000 for haproxy stats page
+  firewalld:
+    port: "9000/tcp"
+    permanent: true
+    state: enabled
+  notify: restart firewalld
+
+- name: Open port 3306 for mysql
+  firewalld:
+    port: "3306/tcp"
+    permanent: true
+    state: enabled
+  notify: restart firewalld
+
+# Install haproxy
+- name: Install haproxy
+  yum:
+    name: haproxy
+    state: present
+
+# Create directories and files for haproxy
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - /etc/haproxy
+    - /run/haproxy
+    - /var/lib/haproxy
+
+- name: Create stats file
+  file:
+    path: /var/lib/haproxy/stats
+    state: touch
+
+# Create users
+- name: Create haproxy user
+  user:
+    name: haproxy
+    state: present
+    system: yes
+
+# Add haproxy configuration 
+- name: Haproxy config
+  template:
+    src: haproxy.cnf.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart haproxy
+
+# Services
+- name: Ensure haproxy is running and enabled
+  service:
+    name: haproxy
+    state: started
+    enabled: yes

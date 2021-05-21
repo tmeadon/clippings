@@ -1,0 +1,16 @@
+
+- name: Stop MariaDB on the first db hostname
+  service:
+    name: mariadb
+    state: stopped
+  when: inventory_hostname == groups['db'][0]
+
+- name: Bootstrap first cluster node
+  command: galera_new_cluster
+  when: inventory_hostname == groups['db'][0]
+
+- name: Restart the other cluster nodes
+  service:
+    name: mariadb
+    state: restarted
+  when: inventory_hostname != groups['db'][0]

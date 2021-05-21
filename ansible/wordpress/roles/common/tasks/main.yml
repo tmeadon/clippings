@@ -1,0 +1,9 @@
+- name: Install CentOS 7 EPEL repository
+  yum: 
+    name: epel-release 
+    state: present
+  
+- name: Disable SELinux
+  selinux:
+    policy: targeted
+    state: permissive

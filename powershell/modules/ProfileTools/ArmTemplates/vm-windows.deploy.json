@@ -1,0 +1,147 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmName": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "newVnetName": {
+      "type": "string",
+      "defaultValue": "vnet",
+      "metadata": {
+        "description": "Name for vnet if a new one is to be created"
+      }
+    },
+    "newSubnetName": {
+      "type": "string",
+      "defaultValue": "subnet01",
+      "metadata": {
+        "description": "Name for the a subnet if a new vnet is being created"
+      }
+    },
+    "existingSubnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "ResourceID for the existing subnet if a new vnet isn't being created"
+      }
+    },
+    "imageProfile": {
+      "type": "object",
+      "defaultValue": {
+        "publisher": "MicrosoftWindowsServer",
+        "offer": "WindowsServer",
+        "sku": "2019-Datacenter",
+        "version": "latest"
+      },
+      "metadata": {
+        "description": "A json object with the following properties: publisher, offer, sku, version"
+      }
+    },
+    "addPublicIp": {
+      "type": "bool"
+    },
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2019-11-01",
+      "condition": "[if(empty(parameters('existingSubnetId')), bool('true'), bool('false'))]",
+      "name": "[parameters('newVnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[parameters('newSubnetName')]",
+            "properties": {
+              "addressPrefix": "10.0.0.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2019-11-01",
+      "condition": "[if(parameters('addPublicIp'), bool('true'), bool('false'))]",
+      "name": "[concat('pip-', parameters('vmName'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-09-01",
+      "name": "[concat('nic-', parameters('vmName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('newVnetName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', concat('pip-', parameters('vmName')))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[if(empty(parameters('existingSubnetId')), resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('newVnetName'), parameters('newSubnetName')), parameters('existingSubnetId'))]"
+              },
+              "publicIPAddress": "[if(parameters('addPublicIp'), json(concat('{\"id\": \"', resourceId('Microsoft.Network/publicIPAddresses', concat('pip-', parameters('vmName'))), '\"}')), json('null'))]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('vmName')]",
+      "apiVersion": "2019-03-01",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', concat('nic-', parameters('vmName')))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B1s"
+        },
+        "osProfile": {
+          "computerName": "[parameters('vmName')]",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": "[parameters('imageProfile')]",
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat('nic-', parameters('vmName')))]"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

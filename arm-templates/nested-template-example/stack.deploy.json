@@ -1,0 +1,139 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "templateContainerUri": {
+      "type": "string"
+    },
+    "templateContainerSas": {
+      "type": "string"
+    },
+    "sshPublicKeys": {
+      "type": "array"
+    }
+  },
+  "variables": {
+    "vnetTemplateName": "vnet.deploy.json",
+    "linuxVmTemplateName": "vm-linux.deploy.json",
+    "bastionTemplateName": "bastion.deploy.json"
+  },
+  "functions": [
+    {
+      "namespace": "stackDeployment",
+      "members": {
+        "buildTemplateUri": {
+          "parameters": [
+            {
+              "name": "containerUri",
+              "type": "string"
+            },
+            {
+              "name": "templateName",
+              "type": "string"
+            },
+            {
+              "name": "sasToken",
+              "type": "string"
+            }
+          ],
+          "output": {
+            "type": "string",
+            "value": "[concat(parameters('containerUri'), '/', parameters('templateName'), '?', parameters('sasToken'))]"
+          }
+        }
+      }
+    }
+  ],
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "name": "networkingDeployment",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[stackDeployment.buildTemplateUri(parameters('templateContainerUri'), variables('vnetTemplateName'), parameters('templateContainerSas'))]",
+          "contentVersion":"1.0.0.0"
+        },
+        "parameters": {
+          "vnetName": {
+            "value": "testVnet"
+          },
+          "addressPrefixes": {
+            "value": [
+              "10.0.0.0/16"
+            ]
+          },
+          "subnets": {
+            "value": [
+              {
+                "name": "AzureBastionSubnet",
+                "addressPrefix": "10.0.2.0/24"
+              },
+              {
+                "name": "dmz",
+                "addressPrefix": "10.0.10.0/24"
+              },
+              {
+                "name": "backend",
+                "addressPrefix": "10.0.11.0/24"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "name": "bastionDeployment",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[stackDeployment.buildTemplateUri(parameters('templateContainerUri'), variables('bastionTemplateName'), parameters('templateContainerSas'))]",
+          "contentVersion":"1.0.0.0"
+        },
+        "parameters": {
+          "bastionHostName": {
+            "value": "bastion"
+          },
+          "bastionSubnetId": {
+            "value": "[reference('networkingDeployment').outputs.subnets.value[0].id]"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2017-05-10",
+      "name": "webVmDeployment",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[stackDeployment.buildTemplateUri(parameters('templateContainerUri'), variables('linuxVmTemplateName'), parameters('templateContainerSas'))]",
+          "contentVersion":"1.0.0.0"
+        },
+        "parameters": {
+          "vmName": {
+            "value": "web"
+          },
+          "subnetId": {
+            "value": "[reference('networkingDeployment').outputs.subnets.value[1].id]"
+          },
+          "imageProfile": {
+            "value": {
+              "publisher": "openlogic",
+              "offer": "centos",
+              "sku": "8.0",
+              "version": "latest"
+            }
+          },
+          "sshPublicKeys": {
+            "value": "[parameters('sshPublicKeys')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

@@ -1,0 +1,7 @@
+galera_server_id: 5
+galera_cluster_name: dbcluster
+galera_sst_user: galera
+galera_sst_pass: galera
+bootstrapped: no
+galera_cluster_interface: eth0
+galera_cluster_interface_fact_var: ansible_{{ galera_cluster_interface }}

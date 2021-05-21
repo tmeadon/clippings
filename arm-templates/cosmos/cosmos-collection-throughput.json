@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "cosmosAccountName": {
+      "type": "string"
+    },
+    "cosmosDatabaseName": {
+      "type": "string"
+    },
+    "cosmosCollectionName": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "name": "[parameters('cosmosAccountName')]",
+      "apiVersion": "2015-04-08",
+      "kind": "GlobalDocumentDB",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "locations": [
+          {
+            "id": "[concat(parameters('cosmosAccountName'), '-', resourceGroup().location)]",
+            "failoverPriority": 0,
+            "locationName": "[resourceGroup().location]"
+          }
+        ],
+        "enableMultipleWriteLocations": false,
+        "isVirtualNetworkFilterEnabled": false,
+        "virtualNetworkRules": [],
+        "ipRangeFilter": "",
+        "comments": "Cosmos DB account",
+        "dependsOn": []
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
+      "name": "[concat(parameters('cosmosAccountName'), '/sql/', parameters('cosmosDatabaseName'))]",
+      "apiVersion": "2016-03-31",
+      "properties": {
+        "resource": {
+          "id": "[parameters('cosmosDatabaseName')]"
+        },
+        "options": {}
+      },
+      "comments": "Deploys the CosmosDb database",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseaccounts', parameters('cosmosAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(parameters('cosmosAccountName'), '/sql/', parameters('cosmosDatabaseName'), '/', parameters('cosmosCollectionName'))]",
+      "apiVersion": "2016-03-31",
+      "properties": {
+        "resource": {
+          "id": "[parameters('cosmosCollectionName')]",
+          "partitionKey": {
+            "paths": [
+              "/entityId"
+            ]
+          }
+        }
+      },
+      "comments": "Deploys the CosmosDb collection",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', parameters('cosmosAccountName'), 'sql', parameters('cosmosDatabaseName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers/settings",
+      "name": "[concat(parameters('cosmosAccountName'), '/sql/', parameters('cosmosDatabaseName'), '/', parameters('cosmosCollectionName'), '/throughput')]",
+      "apiVersion": "2016-03-31",
+      "properties": {
+        "resource": {
+          "throughput": 500
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', parameters('cosmosAccountName'), 'sql', parameters('cosmosDatabaseName'), parameters('cosmosCollectionName'))]"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+# Security
+- name: Open mysql firewall ports
+  firewalld:
+    service: mysql
+    permanent: true
+    state: enabled
+  notify: restart firewalld
+
+- name: Open firewall ports for Galera cluster
+  firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+  with_items:
+    - 4444/tcp
+    - 4567/tcp
+    - 4568/tcp
+  notify: restart firewalld
+
+# Repos
+- name: Add mariadb repo
+  template:
+    src: mariadb.repo
+    dest: /etc/yum.repos.d/mariadb.repo
+    owner: root
+    group: root
+    mode: 0644
+
+# Packages
+- name: Install mariadb server packages
+  yum:
+    name: MariaDB-client, MariaDB-server, MariaDB-backup, galera, socat
+    state: present
+
+- name: Install MySQL-Python package
+  yum:
+    name: MySQL-python
+    state: present
+
+# - name: Install percona-xtrabackup-24 packages
+#   yum:
+#     name: percona-xtrabackup-24, socat
+#     state: present
+
+# Services
+- name: Start and enable mariadb service
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+# Configuration
+- name: Add Galera SST user
+  mysql_user:
+    name: "{{ galera_sst_user }}"
+    host: "localhost"
+    password: "{{ galera_sst_pass }}"
+    priv: "*.*:RELOAD,LOCK TABLES,REPLICATION CLIENT,PROCESS"
+  tags:
+    - mariadbusers
+
+- name: Add wordpress user
+  mysql_user:
+    name: wordpress
+    host: "%"
+    password: wordpress
+    priv: "*.*:ALL"
+  when: inventory_hostname == groups['db'][0]
+
+- name: Add haproxy user
+  mysql_user:
+    name: haproxy-check
+    host: "%"
+  when: inventory_hostname == groups['db'][0]
+
+- name: Add Galera configuration
+  template:
+    src: server.cnf.j2
+    dest: /etc/my.cnf.d/server.cnf
+    owner: root
+    group: root
+    mode: 0644
+  notify: Restart MariaDB Galera cluster
+  tags: 
+    - mariadbconfigfile
+
+# Create databases
+- name: Create mysql database
+  mysql_db:
+    name: wordpress
+    state: present
+  when: inventory_hostname == groups['db'][0]
+
+  
+
+
+

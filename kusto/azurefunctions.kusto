@@ -1,0 +1,4 @@
+// get traces for particular invocation id
+traces
+| extend invocationId = customDimensions.InvocationId
+| where invocationId == "xyz"

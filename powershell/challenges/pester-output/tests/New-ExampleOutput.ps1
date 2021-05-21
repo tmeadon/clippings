@@ -1,0 +1,2 @@
+Invoke-Pester -Path "$PSScriptRoot\exampleTests.ps1" -OutputFormat NUnitXml -OutputFile "$PSScriptRoot\example-nunit.xml" -Show None
+Invoke-Pester -Path "$PSScriptRoot\exampleTests.ps1" -OutputFormat JUnitXml -OutputFile "$PSScriptRoot\example-junit.xml" -Show None

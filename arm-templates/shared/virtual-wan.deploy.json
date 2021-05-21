@@ -1,0 +1,175 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "wanName": {
+      "type": "string"
+    },
+    "wanLocation": {
+      "type": "string"
+    },
+    "wanSku": {
+      "type": "string",
+      "allowedValues": [
+        "Basic",
+        "Standard"
+      ]
+    },
+    "hubs": {
+      "type": "array",
+      "metadata": {
+        "description": "must contain objects with the following properties: hubName, location, addressPrefix, vpnGateway, p2sGateway (both objects with bool properties shouldExist and alreadyExists)"
+      }
+    }
+  },
+  "variables": {  },
+  "functions": [
+    {
+      "namespace": "virtualWan",
+      "members": {
+        "getVpnGatewayObj": {
+          "parameters": [
+            {
+              "name": "hubName",
+              "type": "string"
+            }
+          ],
+          "output": {
+            "type": "object",
+            "value": {
+              "id": "[resourceId('Microsoft.Network/vpnGateways', concat('vpngw-', parameters('hubName')))]"
+            }
+          }
+        },
+        "getP2sVpnGatewayObj": {
+          "parameters": [
+            {
+              "name": "hubName",
+              "type": "string"
+            }
+          ],
+          "output": {
+            "type": "object",
+            "value": {
+              "id": "[resourceId('Microsoft.Network/p2sVpnGateways', concat('p2sgw-', parameters('hubName')))]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualWans",
+      "name": "[parameters('wanName')]",
+      "apiVersion": "2019-09-01",
+      "location": "[parameters('wanLocation')]",
+      "properties": {
+        "type": "[parameters('wanSku')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualHubs",
+      "copy": {
+        "name": "hubs",
+        "count": "[length(parameters('hubs'))]"
+      },
+      "name": "[parameters('hubs')[copyIndex()].hubName]",
+      "apiVersion": "2019-09-01",
+      "location": "[parameters('hubs')[copyIndex()].location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualWans/', parameters('wanName'))]"
+      ],
+      "properties": {
+        "addressPrefix": "[parameters('hubs')[copyIndex()].addressPrefix]",
+        "virtualWan": {
+          "id": "[resourceId('Microsoft.Network/virtualWans',parameters('wanName'))]"
+        },
+        "virtualNetworkConnections": "[parameters('hubs')[copyIndex()].vnetConnections]",
+        "vpnGateway": "[if(parameters('hubs')[copyIndex()].vpnGateway.alreadyExists, virtualWan.getVpnGatewayObj(parameters('hubs')[copyIndex()].hubName), json('null'))]",
+        "p2SVpnGateway": "[if(parameters('hubs')[copyIndex()].p2sGateway.alreadyExists, virtualWan.getP2sVpnGatewayObj(parameters('hubs')[copyIndex()].hubName), json('null'))]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/vpnGateways",
+      "copy": {
+        "name": "vpnGateways",
+        "count": "[length(parameters('hubs'))]"
+      },
+      "condition": "[parameters('hubs')[copyIndex()].vpnGateway.shouldExist]",
+      "name": "[concat('vpngw-', parameters('hubs')[copyIndex()].hubName)]",
+      "apiVersion": "2019-09-01",
+      "location": "[parameters('hubs')[copyIndex()].location]",
+      "dependsOn": [
+        "hubs"
+      ],
+      "properties": {
+        "virtualHub": {
+          "id": "[resourceId('Microsoft.Network/virtualHubs', parameters('hubs')[copyIndex()].hubName)]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/vpnServerConfigurations",
+      "copy": {
+        "name": "p2sGatewayConfigs",
+        "count": "[length(parameters('hubs'))]"
+      },
+      "condition": "[parameters('hubs')[copyIndex()].p2sGateway.shouldExist]",
+      "name": "[concat('vpnConfig-', parameters('hubs')[copyIndex()].hubName)]",
+      "apiVersion": "2019-09-01",
+      "location": "[parameters('hubs')[copyIndex()].location]",
+      "dependsOn": [
+        "hubs"
+      ],
+      "properties": {
+        "vpnProtocols": [
+          "OpenVPN",
+          "IkeV2"
+        ],
+        "vpnAuthenticationTypes": [
+          "Certificate"
+        ],
+        "vpnClientRootCertificates": [
+          {
+            "name": "root",
+            "publicCertData": "[parameters('hubs')[copyIndex()].p2sGateway.rootPublicKey]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/p2svpnGateways",
+      "copy": {
+        "name": "p2sGateways",
+        "count": "[length(parameters('hubs'))]"
+      },
+      "condition": "[parameters('hubs')[copyIndex()].p2sGateway.shouldExist]",
+      "name": "[concat('p2sgw-', parameters('hubs')[copyIndex()].hubName)]",
+      "apiVersion": "2019-09-01",
+      "location": "[parameters('hubs')[copyIndex()].location]",
+      "dependsOn": [
+        "p2sGatewayConfigs"
+      ],
+      "properties": {
+        "virtualHub": {
+          "id": "[resourceId('Microsoft.Network/virtualHubs', parameters('hubs')[copyIndex()].hubName)]"
+        },
+        "p2SConnectionConfigurations": [
+          {
+            "name": "config",
+            "properties": {
+              "vpnClientAddressPool": {
+                "addressPrefixes": "[parameters('hubs')[copyIndex()].p2sGateway.clientAddressPrefixes]"
+              }
+            }
+          }
+        ],
+        "vpnServerConfiguration": {
+          "id": "[resourceId('Microsoft.Network/vpnServerConfigurations', concat('vpnConfig-', parameters('hubs')[copyIndex()].hubName))]"
+        }
+      }
+    }
+  ],
+  "outputs": {  }
+}

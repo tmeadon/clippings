@@ -1,0 +1,28 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vmName": {
+            "value": "uksouth-prod"
+        },
+        "location": {
+            "value": "uksouth"
+        },
+        "subnetId": {
+            "value": "<subnetId>"
+        },
+        "imageProfile": {
+            "value": {
+                "publisher": "openlogic",
+                "offer": "centos",
+                "sku": "8.0",
+                "version": "latest"
+            }
+        },
+        "sshPublicKeys": {
+            "value": [
+                "ssh-rsa <publicKey>"
+            ]
+        }
+    }
+}

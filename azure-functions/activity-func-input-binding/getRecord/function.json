@@ -1,0 +1,18 @@
+{
+  "bindings": [
+    {
+      "name": "query",
+      "type": "activityTrigger",
+      "direction": "in"
+    },
+    {
+      "type": "cosmosDB",
+      "direction": "in",
+      "name": "inputDocument",
+      "databaseName": "test",
+      "collectionName": "test",
+      "connectionStringSetting": "CosmosConnStr",
+      "sqlQuery": "select * from c where c.test = {query}"
+    }
+  ]
+}

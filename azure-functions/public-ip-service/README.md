@@ -1,0 +1,1 @@
+This is a lightweight service that allows the Stratus desktop client to get user's public IP addresses.

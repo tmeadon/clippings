@@ -1,0 +1,232 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appRegistrationId": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the app registration to use when making ARM REST API calls"
+      }
+    },
+    "appRegistrationToken": {
+      "type": "string",
+      "metadata": {
+        "description": "Token for the app registration to be used when making ARM REST API calls"
+      }
+    },
+    "alertEmailAddress": {
+      "type": "string"
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "name": "destroyer-kv",
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2016-10-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "tenantId": "[subscription().tenantId]",
+        "sku": {
+          "name": "standard",
+          "family": "A"
+        },
+        "accessPolicies": [
+        ]
+      },
+      "resources": [
+        {
+          "type": "secrets",
+          "name": "AppRegistrationToken",
+          "apiVersion": "2016-10-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults', 'destroyer-kv')]"
+          ],
+          "properties": {
+            "value": "[parameters('appRegistrationToken')]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "destroyersa",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-06-01",
+      "location": "[resourceGroup().location]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS",
+        "tier": "Standard"
+      }
+    },
+    {
+      "name": "destroyer-insights",
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2015-05-01",
+      "kind": "web",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "Application_Type": "other"
+      }
+    },
+    {
+      "name": "destroyer-plan",
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2019-08-01",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "properties": {
+        "name": "destroyer-plan",
+        "computeMode": "Dynamic"
+      }
+    },
+    {
+      "name": "destroyer-fa",
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2018-11-01",
+      "location": "[resourceGroup().location]",
+      "kind": "functionapp",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', 'destroyer-kv')]",
+        "[resourceId('Microsoft.Storage/storageAccounts', 'destroyersa' )]",
+        "[resourceId('Microsoft.Insights/components', 'destroyer-insights')]",
+        "[resourceId('Microsoft.Web/serverfarms', 'destroyer-plan')]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', 'destroyer-plan')]",
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', 'destroyersa', ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', 'destroyersa'), '2015-05-01-preview').key1)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', 'destroyersa', ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', 'destroyersa'), '2015-05-01-preview').key1)]"
+            },
+            {
+              "name": "WEBSITE_CONTENTSHARE",
+              "value": "[toLower('destroyerfa')]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~3"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('microsoft.insights/components/', 'destroyer-insights'), '2015-05-01').InstrumentationKey]"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "powershell"
+            },
+            {
+              "name": "AppRegId",
+              "value": "[parameters('appRegistrationId')]"
+            },
+            {
+              "name": "AppRegToken",
+              "value": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', 'destroyer-kv', 'AppRegistrationToken')).secretUriWithVersion, ')')]"
+            },
+            {
+              "name": "SubscriptionId",
+              "value": "[subscription().subscriptionId]"
+            },
+            {
+              "name": "TenantId",
+              "value": "[subscription().tenantId]"
+            }
+          ]
+        }
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      }
+    },
+    {
+      "name": "destroyer-kv/replace",
+      "type": "Microsoft.KeyVault/vaults/accessPolicies",
+      "apiVersion": "2019-09-01",
+      "properties": {
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(resourceId('Microsoft.Web/sites', 'destroyer-fa'), '2018-11-01', 'Full').identity.principalId]",
+            "permissions": {
+              "secrets": [
+                "get"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "destroyer-action-group",
+      "type": "Microsoft.Insights/actionGroups",
+      "apiVersion": "2019-03-01",
+      "location": "global",
+      "properties": {
+        "groupShortName": "destroyer-ag",
+        "enabled": true,
+        "emailReceivers": [
+          {
+            "name": "Email",
+            "emailAddress": "[parameters('alertEmailAddress')]",
+            "useCommonAlertSchema": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "destroyer-alert",
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "2018-04-16",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', 'destroyer-insights')]",
+        "[resourceId('Microsoft.Insights/actionGroups', 'destroyer-action-group')]"
+      ],
+      "properties": {
+        "description": "Destroyer early warning system",
+        "enabled": "true",
+        "source": {
+          "query": "traces\n| where severityLevel == 2\n| where message matches regex \"The destroy time for Resource Group .* is in the next hour!\"",
+          "dataSourceId": "[resourceId('Microsoft.Insights/components', 'destroyer-insights')]",
+          "queryType": "ResultCount"
+        },
+        "schedule": {
+          "frequencyInMinutes": 15,
+          "timeWindowInMinutes": 15
+        },
+        "action": {
+          "severity": "3",
+          "aznsAction": {
+            "actionGroup": [
+              "[resourceId('microsoft.insights/actionGroups', 'destroyer-action-group')]"
+            ],
+            "emailSubject": "Resource group destruction imminent!"
+          },
+          "trigger": {
+            "thresholdOperator": "GreaterThan",
+            "threshold": 0
+          },
+          "odata.type": "Microsoft.WindowsAzure.Management.Monitoring.Alerts.Models.Microsoft.AppInsights.Nexus.DataContracts.Resources.ScheduledQueryRules.AlertingAction"
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', 'destroyer-fa'), '2018-11-01').name]"
+    },
+    "functionAppIdentity": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', 'destroyer-fa'), '2018-11-01', 'Full').identity.principalId]"
+    }
+  }
+}

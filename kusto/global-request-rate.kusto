@@ -1,0 +1,35 @@
+// total requests
+requests
+| summarize TotalFunctionExecutionsPerMin=sum(itemCount) by bin(timestamp, 1m)
+| render timechart 
+
+// total requests split by success/failure
+requests
+| extend successfulRequest=iff(success == "True", 1, 0)
+| extend failedRequest=iff(success == "False", 1, 0)
+| summarize TotalRequestsPerMin=sum(itemCount), SuccessfulRequestsPerMin=sum(successfulRequest), FailedRequestsPerMin=sum(failedRequest) by bin(timestamp, 1m)
+| render timechart 
+
+// percent failed requests per minute
+requests
+| extend failedRequest=iff(success == "False", 1, 0)
+| summarize RequestsPerMin=sum(itemCount), RequestsFailedPerMin=sum(failedRequest) by bin(timestamp, 1m)
+| extend PercentRequestsFailedPerMin=(RequestsFailedPerMin * 100)/RequestsPerMin
+| project timestamp, PercentRequestsFailedPerMin
+| render timechart
+
+// avg execution duration
+requests
+| summarize AvgDuration=avg(duration) by bin(timestamp, 5m)
+| render timechart
+
+// summary table
+exceptions
+| union requests
+| summarize 
+TotalExecutions = countif(itemType == "request"),
+['%Failed'] = (countif(itemType == "request" and success != "True") * 100) / countif(itemType == "request"),
+['%Slow'] = (countif(itemType == "request" and duration > 1000) * 100) / countif(itemType == "request"),
+Exceptions = countif(itemType == "exception"),
+DurationAvg = avg(duration),
+['Duration95%'] = percentile(duration, 95)

@@ -1,0 +1,19 @@
+
+
+- hosts: all
+  roles:
+    - { role: common, tags: [ 'common' ] }
+
+- hosts: web
+  roles:
+    - { role: web, tags: [ 'web' ] }
+
+- hosts: db
+  roles:
+    - { role: dbcluster_configure, tags: [ 'db' ] }
+
+- hosts: prx
+  roles:
+    - { role: proxy, tags: [ 'prx' ] }
+
+  

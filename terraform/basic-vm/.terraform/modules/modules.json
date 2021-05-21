@@ -1,0 +1,1 @@
+{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"network","Source":"../modules/azure/vnet","Dir":"..\\modules\\azure\\vnet"},{"Key":"vm","Source":"../modules/azure/vms","Dir":"..\\modules\\azure\\vms"}]}

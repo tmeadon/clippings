@@ -1,0 +1,437 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUserName": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    }
+  },
+  "variables": {
+  },
+  "resources": [
+    {
+      "name": "spoke-uks-vnet",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2019-11-01",
+      "location": "UK South",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.1.0/24"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "Subnet-1",
+            "properties": {
+              "addressPrefix": "10.0.1.0/25"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "spoke-eus2-vnet",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2019-11-01",
+      "location": "eastus2",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.50.0/24"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "Subnet-1",
+            "properties": {
+              "addressPrefix": "10.0.50.0/25"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualWans",
+      "name": "vwan",
+      "apiVersion": "2019-09-01",
+      "location": "UK South",
+      "properties": {
+        "type": "Standard"
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualHubs",
+      "name": "hub-uks",
+      "apiVersion": "2019-09-01",
+      "location": "UK South",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualWans', 'vwan')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', 'spoke-uks-vnet')]"
+      ],
+      "properties": {
+        "addressPrefix": "10.0.0.0/24",
+        "virtualWan": {
+          "id": "[resourceId('Microsoft.Network/virtualWans', 'vwan')]"
+        },
+        "virtualNetworkConnections": [
+          {
+            "name": "spoke-connection",
+            "properties": {
+              "remoteVirtualNetwork": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks', 'spoke-uks-vnet')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/vpnGateways",
+      "name": "s2s-uks",
+      "apiVersion": "2019-09-01",
+      "location": "UK South",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualHubs', 'hub-uks')]"
+      ],
+      "properties": {
+        "virtualHub": {
+          "id": "[resourceId('Microsoft.Network/virtualHubs', 'hub-uks')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualHubs",
+      "name": "hub-eus2",
+      "apiVersion": "2019-09-01",
+      "location": "eastus2",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualWans', 'vwan')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', 'spoke-eus2-vnet')]"
+      ],
+      "properties": {
+        "addressPrefix": "10.0.5.0/24",
+        "virtualWan": {
+          "id": "[resourceId('Microsoft.Network/virtualWans', 'vwan')]"
+        },
+        "virtualNetworkConnections": [
+          {
+            "name": "spoke-connection",
+            "properties": {
+              "remoteVirtualNetwork": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks', 'spoke-eus2-vnet')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/vpnGateways",
+      "name": "s2s-eus2",
+      "apiVersion": "2019-09-01",
+      "location": "eastus2",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualHubs', 'hub-eus2')]"
+      ],
+      "properties": {
+        "virtualHub": {
+          "id": "[resourceId('Microsoft.Network/virtualHubs', 'hub-eus2')]"
+        }
+      }
+    },
+    {
+      "name": "remote-vnet",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2019-11-01",
+      "location": "East US",
+      "tags": {
+        "displayName": "remote-vnet"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.100.0/24"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "Subnet-1",
+            "properties": {
+              "addressPrefix": "10.0.100.0/25"
+            }
+          },
+          {
+            "name": "GatewaySubnet",
+            "properties": {
+              "addressPrefix": "10.0.100.128/25"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "remote-vpn-pip",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2019-11-01",
+      "location": "East US",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "name": "remote-vpn-gw",
+      "type": "Microsoft.Network/virtualNetworkGateways",
+      "apiVersion": "2019-11-01",
+      "location": "East US",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', 'remote-vpn-pip')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', 'remote-vnet')]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "vnetGatewayConfig",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'remote-vnet', 'GatewaySubnet')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'remote-vpn-pip')]"
+              }
+            }
+          }
+        ],
+        "sku": {
+          "name": "VpnGw1",
+          "tier": "VpnGw1"
+        },
+        "gatewayType": "Vpn",
+        "vpnType": "RouteBased",
+        "enableBgp": true
+      }
+    },
+    {
+      "name": "vm-spoke-uks-pip",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2019-11-01",
+      "location": "UK South",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "name": "vm-spoke-uks-nic",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-11-01",
+      "location": "UK South",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'spoke-uks-vnet')]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', 'vm-spoke-uks-pip')]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipConfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'spoke-uks-vnet', 'Subnet-1')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'vm-spoke-uks-pip')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "vm-spoke-uks",
+      "apiVersion": "2019-03-01",
+      "location": "UK South",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', 'vm-spoke-uks-nic')]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B1s"
+        },
+        "osProfile": {
+          "computerName": "vm-spoke",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2019-Datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', 'vm-spoke-uks-nic')]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "vm-spoke-eus2-pip",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2019-11-01",
+      "location": "eastus2",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "name": "vm-spoke-eus2-nic",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-11-01",
+      "location": "eastus2",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'spoke-eus2-vnet')]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', 'vm-spoke-eus2-pip')]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipConfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'spoke-eus2-vnet', 'Subnet-1')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'vm-spoke-eus2-pip')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "vm-spoke-eus2",
+      "apiVersion": "2019-03-01",
+      "location": "eastus2",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', 'vm-spoke-eus2-nic')]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B1s"
+        },
+        "osProfile": {
+          "computerName": "vm-spoke",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2019-Datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', 'vm-spoke-eus2-nic')]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "vm-remote-pip",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2019-11-01",
+      "location": "East US",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "name": "vm-remote-nic",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-11-01",
+      "location": "East US",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'remote-vnet')]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', 'vm-remote-pip')]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipConfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'remote-vnet', 'Subnet-1')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'vm-remote-pip')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "vm-remote",
+      "apiVersion": "2019-03-01",
+      "location": "East US",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', 'vm-remote-nic')]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B1s"
+        },
+        "osProfile": {
+          "computerName": "vm-remote",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2019-Datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', 'vm-remote-nic')]"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": {
+  }
+}
