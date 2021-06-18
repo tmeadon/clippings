@@ -1,0 +1,30 @@
+  
+name: approvals-test
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo build!
+        
+  deploy-dev:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - run: echo deploy-dev! 
+      
+  deploy-test:
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    steps:
+      - run: echo deploy-test!
+      
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: deploy-test
+    steps:
+      - run: echo deploy-prod!
