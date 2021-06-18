@@ -26,5 +26,8 @@ jobs:
   deploy-prod:
     runs-on: ubuntu-latest
     needs: deploy-test
+    environment:
+      name: prod
+      url: https://blog.meadon.me
     steps:
       - run: echo deploy-prod!
