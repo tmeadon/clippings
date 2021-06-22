@@ -51,7 +51,7 @@ PowerShellVersion = '7.0.0'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-# RequiredModules = @()
+# RequiredModules = @('SHiPS', 'AzurePSDrive', 'Az')
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -73,6 +73,7 @@ FunctionsToExport = @(
     'Get-AzureVmIpAddresses',
     'Get-MyPublicIP',
     'Install-LatestPwsh',
+    'New-AzureDriveMapping'
     'New-AzureVm',
     'Save-AzureAccount',
     'Switch-AzureAccount'
