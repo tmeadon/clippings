@@ -43,7 +43,7 @@ resource kv 'Microsoft.KeyVault/vaults@2019-09-01' = {
   resource stgConnStr 'secrets' = {
     name: 'stgConnStr'
     properties: {
-      value: 'DefaultEndpointsProtocol=https;AccountName=destroyersa;AccountKey=${listKeys(resourceId('Microsoft.Storage/storageAccounts', stg.name), '2015-05-01-preview').key1}'
+      value: 'DefaultEndpointsProtocol=https;AccountName=${stg.name};AccountKey=${listKeys(resourceId('Microsoft.Storage/storageAccounts', stg.name), '2015-05-01-preview').key1};EndpointSuffix=core.windows.net'
     }
   }
 }
@@ -74,12 +74,12 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2020-09-01' = {
       }
     }
 
-    resource container 'containers' = {
-      name: 'collection'
+    resource randomDataContainer 'containers' = {
+      name: 'randomData'
       properties: {
         options: {}
         resource: {
-          id: 'collection'
+          id: 'randomData'
           partitionKey: {
             paths: [
               '/id'
@@ -88,6 +88,21 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2020-09-01' = {
         }
       }
     }    
+
+    resource resourcesContainer 'containers' = {
+      name: 'resources'
+      properties: {
+        options: {}
+        resource: {
+          id: 'resources'
+          partitionKey: {
+            paths: [
+              '/id'
+            ]
+          }
+        }
+      }
+    }   
   } 
 }
 
@@ -106,6 +121,7 @@ resource functionApp 'Microsoft.Web/sites@2020-09-01' = {
     name: 'appsettings'
     properties: {
       'AzureWebJobsStorage': '@Microsoft.KeyVault(SecretUri=${kv::stgConnStr.properties.secretUriWithVersion})'
+      'FUNCTIONS_EXTENSION_VERSION': '~3'
       'FUNCTIONS_WORKER_RUNTIME': 'powershell'
       'FUNCTIONS_WORKER_RUNTIME_VERSION': '~7'
       'APPINSIGHTS_INSTRUMENTATIONKEY': ai.properties.InstrumentationKey
