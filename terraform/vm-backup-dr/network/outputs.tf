@@ -7,7 +7,7 @@ output "vm_subnet_id" {
 }
 
 output "vm_subnet_name" {
-  value = azurerm_virtual_network.vnet.name
+  value = azurerm_subnet.vnet_vm_subnet.name
 }
 
 output "pip_ids" {
