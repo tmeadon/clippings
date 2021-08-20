@@ -1,0 +1,3 @@
+.terraform*
+*tfstate*
+terraform/vm-backup-dr/terraform.tfvars

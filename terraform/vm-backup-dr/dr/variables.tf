@@ -27,7 +27,7 @@ variable "vm_id" {
 variable "os_disk" {
   type = object(
     {
-      id = string
+      id  = string
       sku = string
     }
   )
@@ -36,7 +36,7 @@ variable "os_disk" {
 variable "data_disk" {
   type = object(
     {
-      id = string
+      id  = string
       sku = string
     }
   )
@@ -67,5 +67,5 @@ locals {
 }
 
 locals {
-  vm_name = element(local.vm_id_split, length(local.vm_id_split)-1)
+  vm_name = element(local.vm_id_split, length(local.vm_id_split) - 1)
 }

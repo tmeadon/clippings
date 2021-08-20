@@ -58,7 +58,7 @@ resource "random_string" "random" {
 
 resource "azurerm_storage_account" "primary_cache" {
   resource_group_name      = var.resource_groups.primary
-  name                     = "${lower(random_string.random.result)}"
+  name                     = lower(random_string.random.result)
   location                 = var.locations.primary
   account_tier             = "Standard"
   account_replication_type = "LRS"

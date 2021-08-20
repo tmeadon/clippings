@@ -58,13 +58,13 @@ module "vm1-dr" {
     primary   = var.primaryLocation
     secondary = var.secondaryLocation
   }
-  vault_name = var.baseName
-  vm_id = module.vm1.vm_id
-  nic_id = module.vm1.nic_id
-  os_disk = module.vm1.os_disk
-  data_disk = module.vm1.data_disk
-  target_network_id = module.secondary_networking.vnet_id
-  target_subnet_name = module.secondary_networking.vm_subnet_name
-  target_pip_id = module.secondary_networking.pip_ids[0]
+  vault_name               = var.baseName
+  vm_id                    = module.vm1.vm_id
+  nic_id                   = module.vm1.nic_id
+  os_disk                  = module.vm1.os_disk
+  data_disk                = module.vm1.data_disk
+  target_network_id        = module.secondary_networking.vnet_id
+  target_subnet_name       = module.secondary_networking.vm_subnet_name
+  target_pip_id            = module.secondary_networking.pip_ids[0]
   target_resource_group_id = azurerm_resource_group.rg_secondary.id
 }
