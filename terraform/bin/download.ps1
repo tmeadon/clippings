@@ -1,7 +1,7 @@
 $zipPath = "$PSScriptRoot\terraform.zip"
 
 Remove-Item -Path "$PSScriptRoot\*.exe"
-Invoke-WebRequest -Uri "https://releases.hashicorp.com/terraform/0.12.26/terraform_0.12.26_windows_amd64.zip" -UseBasicParsing -OutFile $zipPath
+Invoke-WebRequest -Uri "https://releases.hashicorp.com/terraform/1.0.4/terraform_1.0.4_windows_amd64.zip" -UseBasicParsing -OutFile $zipPath
 Expand-Archive -Path $zipPath -DestinationPath "$PSScriptRoot"
 Remove-Item -Path $zipPath
 
