@@ -48,6 +48,15 @@ module "vm1" {
   }
 }
 
+module "vm1-backup" {
+  source              = "./backup"
+  resource_group_name = azurerm_resource_group.rg.name
+  vault_name          = var.baseName
+  location            = var.primaryLocation
+  vm_id               = module.vm1.vm_id
+
+}
+
 module "vm1-dr" {
   source = "./dr"
   resource_groups = {
