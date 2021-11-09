@@ -15,9 +15,6 @@ Get-ChildItem -Path $PSScriptRoot\Public -Filter "*.ps1" -Recurse | ForEach-Obje
     Export-ModuleMember -Function $_.BaseName
 }
 
-# Register Azure subscription argument completer
-Register-AzureSubCompleter
-
 # Set PSReadLine options
 Set-PSReadLineOption -PredictionSource History
 Set-PSReadLineOption -PredictionViewStyle InlineView
