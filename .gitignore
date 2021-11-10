@@ -1,3 +1,5 @@
 .terraform*
 *tfstate*
 terraform.tfvars
+bin
+obj
