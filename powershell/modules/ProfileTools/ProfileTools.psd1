@@ -78,6 +78,7 @@ FunctionsToExport = @(
     'New-AzureDriveMapping'
     'New-AzureVm',
     'Save-AzureAccount',
+    'Split-AzResourceId',
     'Switch-AzureAccount'
 )
 
