@@ -1,0 +1,39 @@
+{
+  "properties": {
+    "displayName": "Require a tag and its value on resources",
+    "policyType": "Custom",
+    "mode": "Indexed",
+    "description": "Enforces a required tag and its value on VMs only. Does not apply to resource groups.",
+    "metadata": {
+      "version": "1.0.1",
+      "category": "Tags"
+    },
+    "parameters": {
+      "tagName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Tag Name",
+          "description": "Name of the tag, such as 'PatchGroup'"
+        }
+      },
+      "tagValues": {
+        "type": "array",
+        "metadata": {
+          "displayName": "Allowed Tag Values",
+          "description": "List of acceptable tag values"
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "not": {
+          "field": "[concat('tags[', parameters('tagName'), ']')]",
+          "in": "[parameters('tagValue')]"
+        }
+      },
+      "then": {
+        "effect": "deny"
+      }
+    }
+  }
+}

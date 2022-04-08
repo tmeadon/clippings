@@ -1,0 +1,17 @@
+{
+  "if": {
+    "allOf": [
+      {
+        "field": "type",
+        "equals": "Microsoft.Compute/virtualMachines"
+      },
+      { 
+        "field": "[concat('tags[', parameters('tagName'), ']')]",
+        "notIn": "[parameters('tagValues')]"
+      }
+    ]
+  },
+  "then": {
+    "effect": "deny"
+  }
+}
