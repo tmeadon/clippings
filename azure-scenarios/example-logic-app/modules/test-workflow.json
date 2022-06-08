@@ -1,0 +1,98 @@
+{
+  "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "actions": {
+          "Get_entities": {
+              "inputs": {
+                  "host": {
+                      "connection": {
+                          "name": "@parameters('$connections')['azuretables']['connectionId']"
+                      }
+                  },
+                  "method": "get",
+                  "path": "/Tables/@{encodeURIComponent('CustomerDetails')}/entities"
+              },
+              "runAfter": {
+                  "Get_secret": [
+                      "Succeeded"
+                  ]
+              },
+              "type": "ApiConnection"
+          },
+          "Get_secret": {
+              "inputs": {
+                  "host": {
+                      "connection": {
+                          "name": "@parameters('$connections')['keyvault']['connectionId']"
+                      }
+                  },
+                  "method": "get",
+                  "path": "/secrets/@{encodeURIComponent('test')}/value"
+              },
+              "runAfter": {},
+              "type": "ApiConnection"
+          },
+          "Response": {
+              "inputs": {
+                  "body": {
+                      "secret": {
+                          "name": "@body('Get_secret')?['name']",
+                          "value": "@body('Get_secret')?['value']"
+                      },
+                      "table": {
+                          "entities": "@body('Get_entities')"
+                      }
+                  },
+                  "statusCode": 200
+              },
+              "kind": "Http",
+              "runAfter": {
+                  "Get_entities": [
+                      "Succeeded"
+                  ]
+              },
+              "type": "Response"
+          }
+      },
+      "contentVersion": "1.0.0.0",
+      "outputs": {},
+      "parameters": {
+          "$connections": {
+              "defaultValue": {},
+              "type": "Object"
+          }
+      },
+      "triggers": {
+          "manual": {
+              "inputs": {
+                  "method": "GET",
+                  "schema": {}
+              },
+              "kind": "Http",
+              "type": "Request"
+          }
+      }
+  },
+  "parameters": {
+      "$connections": {
+          "value": {
+              "azuretables": {
+                  "connectionId": "/subscriptions/06e67386-ab27-4a98-9018-d2473ae85ae0/resourceGroups/scsm-connector/providers/Microsoft.Web/connections/ogep5rwmdgvvu-sa-connection",
+                  "connectionName": "ogep5rwmdgvvu-sa-connection",
+                  "id": "/subscriptions/06e67386-ab27-4a98-9018-d2473ae85ae0/providers/Microsoft.Web/locations/uksouth/managedApis/azuretables"
+              },
+              "keyvault": {
+                  "connectionId": "/subscriptions/06e67386-ab27-4a98-9018-d2473ae85ae0/resourceGroups/scsm-connector/providers/Microsoft.Web/connections/keyvault-1",
+                  "connectionName": "keyvault-1",
+                  "connectionProperties": {
+                      "authentication": {
+                          "identity": "/subscriptions/06e67386-ab27-4a98-9018-d2473ae85ae0/resourceGroups/scsm-connector/providers/Microsoft.ManagedIdentity/userAssignedIdentities/scsm-connector-msi",
+                          "type": "ManagedServiceIdentity"
+                      }
+                  },
+                  "id": "/subscriptions/06e67386-ab27-4a98-9018-d2473ae85ae0/providers/Microsoft.Web/locations/uksouth/managedApis/keyvault"
+              }
+          }
+      }
+  }
+}
