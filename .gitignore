@@ -3,3 +3,5 @@
 terraform.tfvars
 bin
 obj
+hashicorp*
+local.settings.json
